@@ -46,10 +46,12 @@ class RepeatOnTriggerProgram(QickProgram):
         step_length_us = ramp_time_us/n_steps
         for i in range(n_steps):
             amp_here = int(start_amp + (i/(n_steps-1)) * (end_amp-start_amp))
-            self.set_pulse_registers(ch=main_ch,
-                             freq=self.freq2reg(frequency_mhz, gen_ch=main_ch),              # MUST specify gen ch
-                             length=self.us2cycles(step_length_us,gen_ch=main_ch),   # MUST specify gen ch
-                             gain=amp_here)
+            self.set_pulse_registers(
+                ch=main_ch,
+                freq=self.freq2reg(frequency_mhz, gen_ch=main_ch),              # MUST specify gen ch
+                length=self.us2cycles(step_length_us,gen_ch=main_ch),   # MUST specify gen ch
+                gain=amp_here
+            )
             self.pulse(ch=main_ch, t='auto')
                            
         self.sync_all(self.us2cycles(self.cfg["relax_delay_us"]))
@@ -70,12 +72,12 @@ class RepeatOnTriggerProgram(QickProgram):
 def make_new_prog():
     cfg = {
         "main_ch": 1,
-        "ramp_time_us": 40.0,
+        "ramp_time_us": 20.0,
         "start_amp": 1000,
         "end_amp": 5000,
-        "frequency_mhz": 10.0,
+        "frequency_mhz": 8.0, #Baluns are rated for 10MHz-10GHz
         "relax_delay_us": 1.0,
-        "n_steps":100,
+        "n_steps":300,
     }
     prog = RepeatOnTriggerProgram(soccfg, cfg)
     print(str(prog))
