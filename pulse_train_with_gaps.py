@@ -1,5 +1,3 @@
-import sys
-import signal
 from qick import QickSoc, QickProgram
 
 from typing import Any, Dict
