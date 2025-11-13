@@ -237,7 +237,7 @@ class RepeatOnTriggerProgram(QickProgram):
         # Advance time, gain, and phase accumulators
         self.math(rp, rT,   rT,   "+", rDT) # Increase the pulse time register by rDT
         self.math(rp, rGAQ, rGAQ, "+", rDGAQ) # Increase the gain accumulator register by rDGAQ 
-        # self.math(rp, rPAQ, rPAQ, "+", rDPAQ) # Increase the phase accumulator register by rDGAQ 
+        self.math(rp, rPAQ, rPAQ, "+", rDPAQ) # Increase the phase accumulator register by rDGAQ 
         self.loopnz(rp, rN, "LOOP") # if rN==0: continue else: (rN->rN-1 & jump to loop)
 
         # advance to next segment (increment counters)
@@ -254,7 +254,7 @@ class RepeatOnTriggerProgram(QickProgram):
 
     def run_loop(self, soc, *, amps, phases=None):
         """
-        amps   : list of DAC amplitudes (e.g., [100, 300, 10000]).
+        amplanguages   : list of DAC amplitudes (e.g., [100, 300, 10000]).
                  Each adjacent pair is one segment of duration ramp_time_us with n_steps steps.
         phases : list of phases in radians, same length as amps. If None, zeros are used.
                  Linear interpolation per segment, exactly like amplitude.
@@ -294,7 +294,7 @@ class RepeatOnTriggerProgram(QickProgram):
         # Convert radians -> DDS phase-register units (integer full scale).
         phases_reg = [self.deg2reg((180/np.pi)*phase_rad, gen_ch=ch) for phase_rad in phases]
         p_starts_q = phases_reg[:-1]
-        dp_q = np.zeros(nseg, dtype=np.int32)
+        # dp_q = np.zeros(nseg, dtype=np.int32)
         
         # Use deg2reg(180) to deduce full-scale in a robust way: full_scale = 2 * reg(180°)
         # reg_full = 2 * self.deg2reg(180.0, gen_ch=ch)   # e.g., 65536 for 16-bit phase
@@ -309,8 +309,11 @@ class RepeatOnTriggerProgram(QickProgram):
         # if n_steps == 1:
             # dp_q = np.zeros(nseg, dtype=np.int64)
         # else:
-            # dp_q = np.round(((p_reg[1:] - p_reg[:-1]) * (1 << pfrac_bits)) / (n_steps - 1)).astype(np.int64)
-
+        
+        # dp_q = np.round(((p_reg[1:] - p_reg[:-1]) * (1 << pfrac_bits)) / (n_steps - 1)).astype(np.int64)
+        
+        dps = (phases[1:] - phases[:-1])/(n_steps - 1)
+        dp_q = [self.deg2reg((180/np.pi)*dp_rad, gen_ch=ch) for dp_rad in dps]
 
         # Pack DMEM: [NSEG] + starts[0..nseg-1] + d_q[0..nseg-1]
         words = np.concatenate([
@@ -318,7 +321,8 @@ class RepeatOnTriggerProgram(QickProgram):
             np.asarray(starts, dtype=np.int32),
             np.asarray(d_q, dtype=np.int32),
             np.asarray(p_starts_q, dtype=np.int32),
-            dp_q.astype(np.int32),
+            np.asarray(dp_q, dtype=np.int32),
+            # dp_q.astype(np.int32),
         ])
 
         # Write DMEM and go
