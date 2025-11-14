@@ -340,7 +340,7 @@ if __name__ == "__main__":
     soc = QickSoc(external_clk=False)
     soccfg = soc
     print(soccfg)
-    ramp_time_us = 8.0
+    ramp_time_us = 200.0
     cfg = {
         "main_ch": 1,
         "ramp_time_us": ramp_time_us,   # duration PER SEGMENT
@@ -357,26 +357,62 @@ if __name__ == "__main__":
     
     # print(soccfg._get_ch_cfg(gen_ch=1)['b_phase'])
     
-    N=23
-    BH_amps_I = np.rint(20000*blackman_harris_4term(N))
+    N=27
+    # BH_amps_I = -np.rint(20000*blackman_harris_4term(N))
     
     # DRAG pulses
     # Ω_Q = −β⁢/α (dΩ_I⁢(t)/dt)
     # α is related to the detuning
     # beta ~ 0.5 is tuned to get best fidelity
     
-    BH_amps_Q = 4e5*blackman_harris_4term_derivative(N,dt=ramp_time_us) 
+    # BH_amps_Q = -4e5*blackman_harris_4term_derivative(N,dt=ramp_time_us) 
     # Prefactor chosen to look reasonable for now in the experiment it would be set based on the nearest detuned state.
     
-    BH_amps = np.sqrt(BH_amps_I**2 + BH_amps_Q**2)
+    # BH_amps = np.sqrt(BH_amps_I**2 + BH_amps_Q**2)
     #ϕ(t)=atan2(Q(t),I(t))
-    BH_phase_rad = np.arctan2(BH_amps_Q, BH_amps_I) # radians [-\pi, \pi]
+    # BH_phase_rad = np.unwrap(np.arctan2(BH_amps_Q, BH_amps_I),discont=np.pi)
+    
+    
+    A = 20000               # amplitude scale used before rint
+    K = 4e5                   # DRAG scale
+    c = K / A
+
+    w  = blackman_harris_4term(N, periodic=False)                # analytic window
+    wd = blackman_harris_4term_derivative(N, dt=ramp_time_us)    # analytic time derivative
+
+    # Complex analytic envelope (up to a global minus sign, which adds a constant π)
+    z = w + 1j * c * wd
+    
+    amp = A*np.abs(z)
+    phi = np.unwrap(np.angle(z))
+    
+    phi[0] = np.pi/2
+    phi[-1] = -np.pi/2
+    
+    # Guido Pupillo paper
+    amp=20000*np.array([0.        , 0.10717377, 0.138891  , 0.12211158, 0.07329989,
+       0.        , 0.12743868, 0.25758315, 0.39835331, 0.55058528,
+       0.69186641, 0.81808188, 0.92995797, 1.01919311, 1.08003709,
+       1.08472069, 1.0468148 , 1.00890892, 0.91343954, 0.77894596,
+       0.61814055, 0.48254376, 0.32577341, 0.14450128, 0.        ,
+       0.22118756, 0.39413496, 0.56823985, 0.72595777, 0.85316671,
+       0.96730769, 1.05513011, 1.10050231, 1.06839054, 1.01174681,
+       0.90137858, 0.74545166, 0.53358546, 0.30118172, 0.        ])
+    
+    phi=np.array([0.        , 0.        , 0.        , 0.        , 0.        ,
+       3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265,
+       3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265,
+       3.14159265, 3.14159265, 3.14159265, 3.14159265, 3.14159265,
+       3.14159265, 3.14159265, 3.14159265, 3.14159265, 0.        ,
+       0.        , 0.        , 0.        , 0.        , 0.        ,
+       0.        , 0.        , 0.        , 0.        , 0.        ,
+       0.        , 0.        , 0.        , 0.        , 0.        ])
     
     fig,axs=plt.subplots(3)
-    axs[0].plot(BH_amps_I,  c='g')
-    axs[0].plot(BH_amps_Q,  c='b')
-    axs[1].plot(BH_amps,    c='k')
-    axs[2].plot(BH_phase_rad,    c='b')
+    # axs[0].plot(BH_amps_I,  c='g')
+    # axs[0].plot(BH_amps_Q,  c='b')
+    axs[1].plot(amp,    c='k')
+    axs[2].plot(phi,    c='b')
     fig.savefig('IQplot.png')
     
-    prog.run_loop(soc, amps=BH_amps, phases=BH_phase_rad)
+    prog.run_loop(soc, amps=amp, phases=phi)
